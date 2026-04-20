@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>重力摩托大冒险</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background: #111;
+            color: #fff;
+            overflow: hidden;
+            touch-action: manipulation;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .screen.show {
+            display: flex;
+        }
+
+        /* 菜单界面 */
+        #menu {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            gap: 30px;
+        }
+
+        #menu h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #menu p {
+            font-size: 18px;
+            opacity: 0.9;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .scene-btn {
+            width: 280px;
+            padding: 20px 0;
+            font-size: 20px;
+            background: linear-gradient(45deg, #ff6b6b, #ffa500);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            margin: 8px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .scene-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+
+        /* 游戏界面 */
+        #game {
+            background: #222;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            background: rgba(0,0,0,0.6);
+            padding: 10px 15px;
+            border-radius: 10px;
+            z-index: 10;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 80vh;
+            background: #87CEEB;
+            border-radius: 10px;
+        }
+
+        .control-btn {
+            position: absolute;
+            bottom: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        #pause-btn {
+            right: 100px;
+            background: #ffa500;
+            color: white;
+        }
+
+        #restart-btn {
+            right: 20px;
+            background: #ff4444;
+            color: white;
+        }
+
+        .control-btn:active {
+            transform: scale(0.9);
+        }
+
+        /* 结束界面 */
+        #over {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            gap: 30px;
+        }
+
+        #over h2 {
+            font-size: 36px;
+            text-align: center;
+        }
+
+        #final-score {
+            font-size: 28px;
+            color: #ff4444;
+            text-align: center;
+        }
+
+        #over-btns {
+            display: flex;
+            gap: 20px;
+        }
+
+        #play-again, #back-menu {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #play-again {
+            background: #4CAF50;
+            color: white;
+        }
+
+        #back-menu {
+            background: #2196F3;
+            color: white;
+        }
+
+        #play-again:hover, #back-menu:hover {
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 600px) {
+            #menu h1 {
+                font-size: 28px;
+            }
+            .scene-btn {
+                width: 250px;
+                padding: 18px 0;
+                font-size: 18px;
+            }
+            #hud {
+                font-size: 20px;
+                top: 10px;
+                left: 10px;
+            }
+            #canvas {
+                height: 75vh;
+            }
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+                bottom: 15px;
+            }
+            #pause-btn {
+                right: 75px;
+            }
+            #restart-btn {
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 菜单 -->
+    <div id="menu" class="screen show">
+        <h1>🏍️ 重力摩托大冒险</h1>
+        <p>倾斜手机控制方向，躲避障碍前进！</p>
+        <button class="scene-btn" onclick="startGame('city')">🏙️ 城市道路</button>
+        <button class="scene-btn" onclick="startGame('forest')">🌲 森林赛道</button>
+        <button class="scene-btn" onclick="startGame('island')">🏝️ 海岛公路</button>
+    </div>
+
+    <!-- 游戏 -->
+    <div id="game" class="screen">
+        <div id="hud">分数: <span id="score">0</span> | 速度: <span id="speed">0</span></div>
+        <canvas id="canvas"></canvas>
+        <button id="pause-btn" class="control-btn" onclick="togglePause()">⏸️</button>
+        <button id="restart-btn" class="control-btn" onclick="restartGame()">🔄</button>
+    </div>
+
+    <!-- 结束 -->
+    <div id="over" class="screen">
+        <h2>游戏结束</h2>
+        <div id="final-score">最终分数: 0</div>
+        <div id="over-btns">
+            <button id="play-again" onclick="playAgain()">再玩一次</button>
+            <button id="back-menu" onclick="backToMenu()">返回菜单</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const speedEl = document.getElementById('speed');
+        const finalScoreEl = document.getElementById('final-score');
+
+        const menu = document.getElementById('menu');
+        const game = document.getElementById('game');
+        const over = document.getElementById('over');
+
+        let score = 0;
+        let speed = 5;
+        let bikeX = canvas.width / 2;
+        let obstacles = [];
+        let gameRunning = false;
+        let paused = false;
+        let currentScene = 'city';
+        let audioContext;
+
+        // 场景背景
+        const scenes = {
+            city: { bg: '#87CEEB', ground: '#666', buildings: '#333' },
+            forest: { bg: '#90EE90', ground: '#8B4513', trees: '#228B22' },
+            island: { bg: '#00BFFF', ground: '#F4A460', palm: '#228B22' }
+        };
+
+        // 初始化音频
+        function initAudio() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // 播放音效
+        function playSound(frequency, duration = 0.1) {
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        // 调整画布大小
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            bikeX = canvas.width / 2;
+        }
+
+        // 绘制背景
+        function drawBackground() {
+            const scene = scenes[currentScene];
+            
+            // 天空
+            ctx.fillStyle = scene.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 地面
+            ctx.fillStyle = scene.ground;
+            ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+            
+            // 赛道线
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([20, 20]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2 - 50, canvas.height * 0.7);
+            ctx.lineTo(canvas.width / 2 - 50, canvas.height);
+            ctx.moveTo(canvas.width / 2 + 50, canvas.height * 0.7);
+            ctx.lineTo(canvas.width / 2 + 50, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 场景元素
+            if (currentScene === 'city') {
+                // 建筑
+                ctx.fillStyle = scene.buildings;
+                for (let i = 0; i < 5; i++) {
+                    const x = i * canvas.width / 5;
+                    const w = canvas.width / 6;
+                    const h = Math.random() * 100 + 50;
+                    ctx.fillRect(x, canvas.height * 0.7 - h, w, h);
+                }
+            } else if (currentScene === 'forest') {
+                // 树木
+                ctx.fillStyle = scene.trees;
+                for (let i = 0; i < 8; i++) {
+                    const x = Math.random() * canvas.width;
+                    const y = canvas.height * 0.7 - Math.random() * 50;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (currentScene === 'island') {
+                // 棕榈树
+                ctx.fillStyle = scene.palm;
+                for (let i = 0; i < 6; i++) {
+                    const x = Math.random() * canvas.width;
+                    const y = canvas.height * 0.7 - 30;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 15, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 树干
+                    ctx.fillRect(x - 2, y, 4, 30);
+                }
+            }
+        }
+
+        // 绘制摩托车
+        function drawBike() {
+            ctx.save();
+            ctx.translate(bikeX, canvas.height * 0.8);
+            
+            // 车身 (3D 效果)
+            ctx.fillStyle = '#ff4444';
+            ctx.fillRect(-20, -10, 40, 20);
+            ctx.fillStyle = '#cc0000';
+            ctx.fillRect(-18, -8, 36, 16);
+            
+            // 轮子
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(-15, 10, 8, 0, Math.PI * 2);
+            ctx.arc(15, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 轮辐
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-15, 2);
+            ctx.lineTo(-15, 18);
+            ctx.moveTo(-23, 10);
+            ctx.lineTo(-7, 10);
+            ctx.moveTo(15, 2);
+            ctx.lineTo(15, 18);
+            ctx.moveTo(7, 10);
+            ctx.lineTo(23, 10);
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        // 绘制障碍物
+        function drawObstacles() {
+            ctx.fillStyle = '#ffaa00';
+            obstacles.forEach(obstacle => {
+                ctx.fillRect(obstacle.x - 15, obstacle.y - 15, 30, 30);
+            });
+        }
+
+        // 更新游戏
+        function update() {
+            if (!gameRunning || paused) return;
+            
+            // 移动障碍物
+            obstacles.forEach(obstacle => {
+                obstacle.y += speed;
+            });
+            
+            // 移除超出屏幕的障碍物
+            obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height + 50);
+            
+            // 生成新障碍物
+            if (Math.random() < 0.02) {
+                obstacles.push({
+                    x: Math.random() * (canvas.width - 100) + 50,
+                    y: -50
+                });
+            }
+            
+            // 碰撞检测
+            obstacles.forEach(obstacle => {
+                if (Math.abs(obstacle.x - bikeX) < 35 && Math.abs(obstacle.y - canvas.height * 0.8) < 25) {
+                    gameOver();
+                }
+            });
+            
+            // 增加分数
+            score += Math.floor(speed / 10);
+            scoreEl.textContent = score;
+            
+            // 增加速度
+            speed += 0.01;
+            speedEl.textContent = Math.floor(speed);
+        }
+
+        // 绘制游戏
+        function draw() {
+            drawBackground();
+            drawBike();
+            drawObstacles();
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 开始游戏
+        function startGame(scene) {
+            currentScene = scene;
+            score = 0;
+            speed = 5;
+            bikeX = canvas.width / 2;
+            obstacles = [];
+            gameRunning = true;
+            paused = false;
+            
+            menu.classList.remove('show');
+            game.classList.add('show');
+            
+            initAudio();
+            resizeCanvas();
+            gameLoop();
+        }
+
+        // 暂停/继续
+        function togglePause() {
+            paused = !paused;
+            document.getElementById('pause-btn').textContent = paused ? '▶️' : '⏸️';
+        }
+
+        // 重启游戏
+        function restartGame() {
+            score = 0;
+            speed = 5;
+            bikeX = canvas.width / 2;
+            obstacles = [];
+            gameRunning = true;
+            paused = false;
+        }
+
+        // 游戏结束
+        function gameOver() {
+            gameRunning = false;
+            finalScoreEl.textContent = '最终分数: ' + score;
+            game.classList.remove('show');
+            over.classList.add('show');
+            playSound(200, 0.5); // 结束音效
+        }
+
+        // 再玩一次
+        function playAgain() {
+            over.classList.remove('show');
+            startGame(currentScene);
+        }
+
+        // 返回菜单
+        function backToMenu() {
+            over.classList.remove('show');
+            menu.classList.add('show');
+        }
+
+        // 陀螺仪控制
+        window.addEventListener('deviceorientation', e => {
+            if (!gameRunning || paused) return;
+            const gamma = e.gamma || 0;
+            bikeX += gamma * 3;
+            bikeX = Math.max(50, Math.min(canvas.width - 50, bikeX));
+        });
+
+        // 触摸加速
+        canvas.addEventListener('touchstart', () => {
+            if (gameRunning && !paused) {
+                speed += 2;
+                playSound(600, 0.1);
+            }
+        });
+
+        // 窗口调整
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    </script>
+</body>
+</html>
