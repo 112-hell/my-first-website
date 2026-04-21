@@ -93,7 +93,7 @@
             background: rgba(0,0,0,0.6);
             padding: 10px 15px;
             border-radius: 10px;
-            z-index: 10;
+            z-index: 20;
         }
 
         #instructions {
@@ -104,7 +104,7 @@
             background: rgba(0,0,0,0.6);
             padding: 5px 10px;
             border-radius: 5px;
-            z-index: 10;
+            z-index: 20;
         }
 
         #canvas {
@@ -113,6 +113,9 @@
             left: 0;
             width: 100vw;
             height: 100vh;
+            display: block;
+            background-color: #87CEEB;
+            z-index: 5;
         }
 
         .control-btn {
@@ -125,7 +128,7 @@
             font-size: 24px;
             cursor: pointer;
             transition: all 0.2s ease;
-            z-index: 10;
+            z-index: 20;
         }
 
         #pause-btn {
@@ -238,7 +241,7 @@
 
     <!-- 游戏 -->
     <div id="game" class="screen">
-        <div id="hud">分数: <span id="score">0</span> | 速度: <span id="speed">0</span></div>
+        <div id="hud">分数: <span id="score">0</span> | 速度: <span id="speed">0</span> | <span id="diff-label">1.0x</span></div>
         <div id="instructions">倾斜控制左右，点击加速</div>
         <canvas id="canvas"></canvas>
         <button id="pause-btn" class="control-btn" onclick="togglePause()">⏸️</button>
@@ -256,8 +259,24 @@
     </div>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        // 延迟初始化以确保DOM加载完成
+        let canvas, ctx;
+        
+        function initCanvas() {
+            canvas = document.getElementById('canvas');
+            if (!canvas) {
+                console.error('Canvas element not found');
+                return false;
+            }
+            ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Canvas context not found');
+                return false;
+            }
+            console.log('Canvas initialized:', canvas.width, canvas.height);
+            return true;
+        }
+        
         const scoreEl = document.getElementById('score');
         const speedEl = document.getElementById('speed');
         const finalScoreEl = document.getElementById('final-score');
@@ -268,8 +287,10 @@
 
         let score = 0;
         let speed = 5;
-        let bikeX = canvas.width / 2;
+        let bikeX = 0;
         let obstacles = [];
+        let hitCount = 0;
+        const maxHits = 4;
         let gameRunning = false;
         let paused = false;
         let currentScene = 'city';
@@ -288,30 +309,67 @@
         function initSceneElements() {
             sceneElements = [];
             if (currentScene === 'city') {
-                for (let i = 0; i < 10; i++) {
+                // 左侧建筑
+                for (let i = 0; i < 5; i++) {
+                    const h = Math.random() * 100 + 60;
                     sceneElements.push({
-                        x: Math.random() * canvas.width,
-                        y: Math.random() * canvas.height,
-                        w: canvas.width / 6,
-                        h: Math.random() * 100 + 50
+                        x: 10,
+                        y: -300 + i * 250,
+                        w: 70,
+                        h: h
+                    });
+                }
+                // 右侧建筑
+                for (let i = 0; i < 5; i++) {
+                    const h = Math.random() * 100 + 60;
+                    sceneElements.push({
+                        x: canvas.width - 80,
+                        y: -300 + i * 250,
+                        w: 70,
+                        h: h
                     });
                 }
             } else if (currentScene === 'forest') {
-                for (let i = 0; i < 15; i++) {
+                // 左侧树木
+                for (let i = 0; i < 8; i++) {
                     sceneElements.push({
-                        x: Math.random() * canvas.width,
-                        y: Math.random() * canvas.height,
-                        r: 20
+                        x: 50,
+                        y: -200 + i * 200,
+                        r: 25
+                    });
+                }
+                // 右侧树木
+                for (let i = 0; i < 8; i++) {
+                    sceneElements.push({
+                        x: canvas.width - 50,
+                        y: -200 + i * 200,
+                        r: 25
                     });
                 }
             } else if (currentScene === 'island') {
-                for (let i = 0; i < 10; i++) {
+                // 左侧棕榈树
+                for (let i = 0; i < 6; i++) {
                     sceneElements.push({
-                        x: Math.random() * canvas.width,
-                        y: Math.random() * canvas.height,
-                        r: 15
+                        x: 60,
+                        y: -200 + i * 250,
+                        r: 20
                     });
                 }
+                // 右侧棕榈树
+                for (let i = 0; i < 6; i++) {
+                    sceneElements.push({
+                        x: canvas.width - 60,
+                        y: -200 + i * 250,
+                        r: 20
+                    });
+                }
+            }
+        }
+
+        // 初始化音频
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
         }
 
@@ -334,8 +392,10 @@
 
         // 调整画布大小
         function resizeCanvas() {
-            canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
+            if (!canvas) return;
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            console.log('Canvas resized to:', canvas.width, canvas.height);
             bikeX = canvas.width / 2;
         }
 
@@ -403,7 +463,9 @@
             ctx.fillStyle = '#333';
             ctx.beginPath();
             ctx.arc(-15, 10, 8, 0, Math.PI * 2);
-            ctx.arc(15, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(15, 10, 8, 0, Math.PI * 2);
             ctx.fill();
             
             // 轮辐
@@ -423,20 +485,35 @@
             ctx.restore();
         }
 
+
+        // 障碍物类型
+        const OBSTACLE_TYPES = [
+            { name: '石头', color: '#888', draw: (ctx, x, y) => { ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fill(); } },
+            { name: '树叶', color: '#3c3', draw: (ctx, x, y) => { ctx.beginPath(); ctx.ellipse(x, y, 18, 10, Math.PI/6, 0, Math.PI * 2); ctx.fill(); } },
+            { name: '树枝', color: '#a0522d', draw: (ctx, x, y) => { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI/8); ctx.fillRect(-15, -3, 30, 6); ctx.restore(); } },
+        ];
+
+        // 4车道坐标
+        function getLaneX(lane) {
+            // 4车道，居中分布
+            const lanes = [canvas.width * 0.25, canvas.width * 0.4, canvas.width * 0.6, canvas.width * 0.75];
+            return lanes[lane];
+        }
+
         // 绘制障碍物
         function drawObstacles() {
-            ctx.fillStyle = '#ffaa00';
             obstacles.forEach(obstacle => {
-                ctx.fillRect(obstacle.x - 15, obstacle.y - 15, 30, 30);
+                ctx.save();
+                ctx.fillStyle = OBSTACLE_TYPES[obstacle.type].color;
+                OBSTACLE_TYPES[obstacle.type].draw(ctx, obstacle.x, obstacle.y);
+                ctx.restore();
             });
         }
 
         // 更新游戏
         function update() {
             if (!gameRunning || paused) return;
-            
             scrollOffset += speed * 0.1;
-            
             // 更新场景元素
             sceneElements.forEach(el => {
                 el.y += speed * 0.3;
@@ -445,48 +522,76 @@
                     el.x = Math.random() * canvas.width;
                 }
             });
-            
             // 移动障碍物
             obstacles.forEach(obstacle => {
                 obstacle.y += speed;
-                if (obstacle.y > canvas.height && !obstacle.passed) {
-                    obstacle.passed = true;
-                    score += 10;
-                }
             });
-            
             // 移除超出屏幕的障碍物
-            obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height + 50);
-            
-            // 生成新障碍物
-            if (Math.random() < 0.02) {
+            obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height + 40);
+            // 生成新障碍物（每帧有概率在随机车道生成）
+            if (Math.random() < 0.025) {
+                const lane = Math.floor(Math.random() * 4);
+                const type = Math.floor(Math.random() * OBSTACLE_TYPES.length);
                 obstacles.push({
-                    x: Math.random() * (canvas.width - 100) + 50,
-                    y: -50,
-                    passed: false
+                    lane,
+                    x: getLaneX(lane),
+                    y: -40,
+                    type,
+                    hit: false
                 });
             }
-            
             // 碰撞检测
             obstacles.forEach(obstacle => {
-                if (Math.abs(obstacle.x - bikeX) < 35 && Math.abs(obstacle.y - canvas.height * 0.8) < 25) {
-                    gameOver();
+                // 判断摩托车是否在同一车道
+                const bikeLane = getBikeLane();
+                if (!obstacle.hit && obstacle.lane === bikeLane && Math.abs(obstacle.y - canvas.height * 0.8) < 30) {
+                    obstacle.hit = true;
+                    hitCount++;
+                    playSound(200, 0.2);
+                    if (hitCount >= maxHits) {
+                        gameOver();
+                    }
                 }
             });
-            
-            // 更新HUD
+            // 分数随时间递增
+            score += Math.floor(speed / 10);
             scoreEl.textContent = score;
-            
             // 增加速度
             speed += 0.01;
             speedEl.textContent = Math.floor(speed);
         }
 
+        // 获取摩托车当前所在车道
+        function getBikeLane() {
+            // 4车道，分段判断
+            const lanes = [canvas.width * 0.25, canvas.width * 0.4, canvas.width * 0.6, canvas.width * 0.75];
+            let minDist = Infinity, laneIdx = 0;
+            for (let i = 0; i < lanes.length; i++) {
+                const d = Math.abs(bikeX - lanes[i]);
+                if (d < minDist) { minDist = d; laneIdx = i; }
+            }
+            return laneIdx;
+        }
+
         // 绘制游戏
         function draw() {
+            if (!ctx || !canvas) {
+                console.error('Canvas or context not available');
+                return;
+            }
+            // 清屏
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // 绘制所有元素
             drawBackground();
-            drawBike();
             drawObstacles();
+            drawBike();
+            // 绘制碰撞计数
+            ctx.save();
+            ctx.font = 'bold 22px Arial';
+            ctx.fillStyle = hitCount < maxHits ? '#fff' : '#ff4444';
+            ctx.fillText(`碰撞: ${hitCount} / ${maxHits}`, canvas.width - 180, 40);
+            ctx.restore();
         }
 
         // 游戏循环
@@ -498,21 +603,28 @@
 
         // 开始游戏
         function startGame(scene) {
+            if (!initCanvas()) return;
+            
             currentScene = scene;
             score = 0;
             speed = 5;
-            bikeX = canvas.width / 2;
             obstacles = [];
             gameRunning = true;
             paused = false;
-            initSceneElements();
             scrollOffset = 0;
             
             menu.classList.remove('show');
             game.classList.add('show');
             
+            console.log('Game starting with scene:', scene);
+            
             initAudio();
             resizeCanvas();
+            bikeX = canvas.width / 2;
+            initSceneElements();
+            
+            console.log('Scene elements:', sceneElements.length);
+            console.log('Starting game loop');
             gameLoop();
         }
 
@@ -528,6 +640,7 @@
             speed = 5;
             bikeX = canvas.width / 2;
             obstacles = [];
+            hitCount = 0;
             gameRunning = true;
             paused = false;
             scrollOffset = 0;
@@ -536,7 +649,7 @@
         // 游戏结束
         function gameOver() {
             gameRunning = false;
-            finalScoreEl.textContent = '最终分数: ' + score;
+            finalScoreEl.textContent = `最终分数: ${score}<br>碰撞次数: ${hitCount}`;
             game.classList.remove('show');
             over.classList.add('show');
             playSound(200, 0.5); // 结束音效
@@ -556,23 +669,41 @@
 
         // 陀螺仪控制
         window.addEventListener('deviceorientation', e => {
-            if (!gameRunning || paused) return;
+            if (!gameRunning || paused || !canvas) return;
             const gamma = e.gamma || 0;
             bikeX += gamma * 2;
             bikeX = Math.max(50, Math.min(canvas.width - 50, bikeX));
         });
 
         // 触摸加速
-        canvas.addEventListener('touchstart', () => {
-            if (gameRunning && !paused) {
-                speed = Math.min(speed + 2, 15);
-                playSound(600, 0.1);
+        function setupTouchControl() {
+            if (canvas) {
+                canvas.addEventListener('touchstart', () => {
+                    if (gameRunning && !paused) {
+                        speed = Math.min(speed + 2, 15);
+                        playSound(600, 0.1);
+                    }
+                });
+            }
+        }
+
+        // 窗口调整
+        window.addEventListener('resize', () => {
+            if (gameRunning) {
+                resizeCanvas();
             }
         });
 
-        // 窗口调整
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        // 页面加载完成后初始化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                initCanvas();
+                setupTouchControl();
+            });
+        } else {
+            initCanvas();
+            setupTouchControl();
+        }
     </script>
 </body>
 </html>
